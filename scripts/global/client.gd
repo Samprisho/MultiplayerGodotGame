@@ -12,7 +12,10 @@ func create_client() -> void:
 		Network.resetTime()
 		multiplayer.multiplayer_peer = peer
 		Network.udpClient = PacketPeerUDP.new()
-		var udpError = Network.udpClient.connect_to_host(Network.IP_ADDRESS, Network.MOVEMENT_PORT)
+		
+		var udpError = Network.udpClient.connect_to_host(
+			Network.IP_ADDRESS, Network.MOVEMENT_PORT)
+		
 		if udpError == OK:
 			print("Client: Connected to %s" % [Network.IP_ADDRESS])
 			# Send a UDP packet to establish the connection and let server know our ENet ID
@@ -31,35 +34,35 @@ func client_process(delta: float):
 		var packet_type = array_bytes[0]
 		
 		match packet_type:
-			Network.PacketType.TIME_SYNC:
-				client_sync_time(array_bytes)
 			Network.PacketType.MOVEMENT_UPDATE:
 				client_movement_update(array_bytes)
 
 func client_movement_update(array_bytes: PackedByteArray):
-	
 	var offset: int = 1
 	
 	while offset < array_bytes.size():
 		var id: int = array_bytes.decode_var(offset)
-		offset += 8
+		offset += array_bytes.decode_var_size(offset)
 		var pos: Vector3 = array_bytes.decode_var(offset)
-		offset += 16
+		offset += array_bytes.decode_var_size(offset)
 		
 		# an int has 8 bytes (64 bits / 8 buts)
 		# a vector has 16 bytes
 		# so we offset by 24
 		
-		
-		
-		var player = get_tree().current_scene.get_node(
+		var player: Player = get_tree().current_scene.get_node(
 			"Players").get_node_or_null(str(id))
 		
 		if player:
-			player.position = pos
-
-func client_sync_time(array_bytes: PackedByteArray):
-	Network.serverLobbyTime = array_bytes[1]
+			if id != multiplayer.multiplayer_peer.get_unique_id():
+				DebugDraw3D.draw_sphere(pos, 0.5, Color.RED)
+				player.position = lerp(
+					player.position, pos, get_physics_process_delta_time() * 12)
+				
+			else:
+				if player.position.distance_to(pos) > 10:
+					player.position = pos
+				DebugDraw3D.draw_sphere(pos)
 
 func client_send_udp_association_packet():
 	# Send a special UDP packet that includes our ENet ID

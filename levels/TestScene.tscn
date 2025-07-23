@@ -5,6 +5,10 @@
 [ext_resource type="Script" uid="uid://3bpr7y773iiw" path="res://scripts/netUI.gd" id="2_md15r"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_6m7py"]
+sky_top_color = Color(0.153, 0.46425, 0.9, 1)
+sky_horizon_color = Color(0.45, 0.6375, 0.9, 1)
+ground_horizon_color = Color(0.45, 0.6375, 0.9, 1)
+ground_curve = 0.211121
 
 [sub_resource type="Sky" id="Sky_kg6ww"]
 sky_material = SubResource("ProceduralSkyMaterial_6m7py")
@@ -12,6 +16,7 @@ sky_material = SubResource("ProceduralSkyMaterial_6m7py")
 [sub_resource type="Environment" id="Environment_fgmgd"]
 background_mode = 2
 sky = SubResource("Sky_kg6ww")
+ambient_light_source = 3
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_kg6ww"]
 render_priority = 0
