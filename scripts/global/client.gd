@@ -1,3 +1,4 @@
+# Modified client.gd
 extends Node
 
 func create_client() -> void:
@@ -18,7 +19,6 @@ func create_client() -> void:
 		
 		if udpError == OK:
 			print("Client: Connected to %s" % [Network.IP_ADDRESS])
-			# Send a UDP packet to establish the connection and let server know our ENet ID
 			client_send_udp_association_packet()
 		else:
 			print("ENet peer %s connected, but the UDP FAILED!!!!" %
@@ -28,14 +28,26 @@ func create_client() -> void:
 		print("Failed to connect: ", error)
 
 func client_process(delta: float):
-	if Network.udpClient.get_available_packet_count() > 0:
+	# Process ALL available packets in one frame to prevent buffer buildup
+	var packets_processed = 0
+	var max_packets_per_frame = 20  # Safety limit
+	
+	while Network.udpClient.get_available_packet_count() > 0 and packets_processed < max_packets_per_frame:
 		var array_bytes = Network.udpClient.get_packet()
-		
 		var packet_type = array_bytes[0]
 		
 		match packet_type:
 			Network.PacketType.MOVEMENT_UPDATE:
 				client_movement_update(array_bytes)
+			Network.PacketType.SERVER_CORRECTION:
+				client_handle_server_correction(array_bytes)
+		
+		packets_processed += 1
+	
+	# Warn if we're getting too many packets
+	if packets_processed >= max_packets_per_frame:
+		print("Warning: Packet processing limit reached, %d packets remaining" % 
+			Network.udpClient.get_available_packet_count())
 
 func client_movement_update(array_bytes: PackedByteArray):
 	var offset: int = 1
@@ -46,30 +58,60 @@ func client_movement_update(array_bytes: PackedByteArray):
 		var pos: Vector3 = array_bytes.decode_var(offset)
 		offset += array_bytes.decode_var_size(offset)
 		
-		# an int has 8 bytes (64 bits / 8 buts)
-		# a vector has 16 bytes
-		# so we offset by 24
-		
 		var player: Player = get_tree().current_scene.get_node(
 			"Players").get_node_or_null(str(id))
 		
-		if player:
-			if id != multiplayer.multiplayer_peer.get_unique_id():
-				DebugDraw3D.draw_sphere(pos, 0.5, Color.RED)
-				player.position = lerp(
-					player.position, pos, get_physics_process_delta_time() * 12)
-				
-			else:
-				if player.position.distance_to(pos) > 10:
-					player.position = pos
-				DebugDraw3D.draw_sphere(pos)
+		if !player:
+			return
+		
+		if id != multiplayer.multiplayer_peer.get_unique_id():
+			# For other players, just interpolate to server position
+			DebugDraw3D.draw_sphere(pos, 0.5, Color.RED)
+			player.position = lerp(
+				player.position, pos, get_physics_process_delta_time() * 12)
+		else:
+			# For local player, only apply if there's a big discrepancy
+			# (Most corrections should come via SERVER_CORRECTION packets)
+			if player.position.distance_to(pos) > 5.0:
+				print("Emergency position correction: ", player.position.distance_to(pos))
+				player.position = pos
+			DebugDraw3D.draw_sphere(pos)
+
+func client_handle_server_correction(array_bytes: PackedByteArray):
+	"""Handle authoritative server corrections for local player"""
+	var offset: int = 1
+	
+	# Decode player ID
+	var player_id: int = array_bytes.decode_var(offset)
+	offset += array_bytes.decode_var_size(offset)
+	
+	# Only apply corrections to our own player
+	if player_id != multiplayer.multiplayer_peer.get_unique_id():
+		return
+	
+	# Decode server position
+	var server_position: Vector3 = array_bytes.decode_var(offset)
+	offset += array_bytes.decode_var_size(offset)
+	
+	# Decode server velocity
+	var server_velocity: Vector3 = array_bytes.decode_var(offset)
+	offset += array_bytes.decode_var_size(offset)
+	
+	# Decode sequence number this correction refers to
+	var sequence_number: int = array_bytes.decode_var(offset)
+	offset += array_bytes.decode_var_size(offset)
+	
+	# Get our player and apply the correction
+	var player: Player = get_tree().current_scene.get_node(
+		"Players").get_node_or_null(str(player_id))
+	
+	if player:
+		player.receive_server_correction(server_position, server_velocity, sequence_number)
 
 func client_send_udp_association_packet():
-	# Send a special UDP packet that includes our ENet ID
 	var packet = PackedByteArray()
 	packet.append(Network.PacketType.CLIENT_ASSOCIATION)
 	
-	# Add our ENet multiplayer ID to the packet
 	var client_id = multiplayer.get_unique_id()
 	packet.append_array(var_to_bytes(client_id))
 	

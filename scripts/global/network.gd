@@ -1,10 +1,9 @@
-#network.gd
+# Modified network.gd
 extends Node
  
 const IP_ADDRESS = "127.0.0.1"
 const PORT = 9000
 const MAX_CLIENTS = 12
-
 const MOVEMENT_PORT = 8089
 
 # Maps UDP remote port (as seen by server) to ENet client ID
@@ -13,9 +12,7 @@ var MapUDPToClient: Dictionary = {}
 var MapClientToUDP: Dictionary = {}
 
 var udpServer: UDPServer
-# AKA, the clients connected to the server
 var udpPeers: Array[PacketPeerUDP] = []
-
 var udpClient: PacketPeerUDP
 
 var serverLobbyTime: int = 0
@@ -26,6 +23,7 @@ enum PacketType {
 	MOVEMENT_INPUT,
 	MOVEMENT_UPDATE,
 	CLIENT_ASSOCIATION,
+	SERVER_CORRECTION,  # New packet type for server corrections
 }
 
 func create_client() -> void:
@@ -52,7 +50,7 @@ func _physics_process(delta: float) -> void:
 	if udpClient and udpClient.is_socket_connected():
 		Client.client_process(delta)
 	
-	# REEAAALLLY trying to make sure that only the server listens from clients
+	# Server processes UDP packets
 	if udpServer and udpServer.is_listening() and multiplayer.is_server():
 		Server.server_process(delta)
 
@@ -62,7 +60,6 @@ func _process(delta: float) -> void:
 func _on_peer_connected(id: int):
 	print("Peer connected: ", id)
 	
-	# Only the server should spawn players for new connections
 	if multiplayer.is_server():
 		Server.spawn_player(id)
 
@@ -96,7 +93,6 @@ func get_UDP_peer_from_client_id(client_id: int) -> PacketPeerUDP:
 func associate_udp_with_client(udp_peer: PacketPeerUDP, client_id: int):
 	var remote_port = udp_peer.get_packet_port()
 	
-	# Store both mappings for easy lookup
 	MapUDPToClient[remote_port] = client_id
 	MapClientToUDP[client_id] = udp_peer
 	

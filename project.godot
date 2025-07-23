@@ -69,7 +69,6 @@ MoveLeft={
 
 [physics]
 
-common/physics_ticks_per_second=44
 3d/physics_engine="Jolt Physics"
 
 [rendering]
