@@ -1,0 +1,131 @@
+[gd_scene load_steps=13 format=3 uid="uid://b1nu2yixkbob3"]
+
+[ext_resource type="Script" uid="uid://wo4glkoj4dp5" path="res://scripts/scene.gd" id="1_otleo"]
+[ext_resource type="Shader" uid="uid://c7w0qn2c6k0dr" path="res://materials/ToonShader.tres" id="1_tgvm6"]
+[ext_resource type="Script" uid="uid://3bpr7y773iiw" path="res://scripts/netUI.gd" id="2_md15r"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_6m7py"]
+
+[sub_resource type="Sky" id="Sky_kg6ww"]
+sky_material = SubResource("ProceduralSkyMaterial_6m7py")
+
+[sub_resource type="Environment" id="Environment_fgmgd"]
+background_mode = 2
+sky = SubResource("Sky_kg6ww")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_kg6ww"]
+render_priority = 0
+shader = ExtResource("1_tgvm6")
+shader_parameter/Albedo = Color(0.290196, 0.294118, 1, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_6m7py"]
+render_priority = 0
+shader = ExtResource("1_tgvm6")
+shader_parameter/Albedo = Color(0.184314, 0.419608, 0.290196, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fgmgd"]
+render_priority = 0
+shader = ExtResource("1_tgvm6")
+shader_parameter/Albedo = Color(0.140447, 0.140447, 0.140447, 1)
+
+[sub_resource type="PrismMesh" id="PrismMesh_otleo"]
+left_to_right = 0.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_s3n8f"]
+render_priority = 0
+shader = ExtResource("1_tgvm6")
+shader_parameter/Albedo = Color(0.0745098, 0.564706, 0.458824, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_otleo"]
+font_size = 20
+
+[node name="TestScene" type="Node3D"]
+script = ExtResource("1_otleo")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_fgmgd")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.788386, -0.532762, 0.30759, 1.27484e-08, 0.5, 0.866025, -0.615182, -0.682762, 0.394193, 0, 3, 3)
+light_energy = 1.28
+shadow_enabled = true
+directional_shadow_mode = 0
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(0.707107, -0.353554, 0.612372, -4.91014e-08, 0.866025, 0.500001, -0.707107, -0.353554, 0.612372, 3.57451, 4.55025, 5.37208)
+
+[node name="CSGMesh3D" type="CSGMesh3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.191735, 0, 0)
+use_collision = true
+material = SubResource("ShaderMaterial_kg6ww")
+
+[node name="CSGBox3D" type="CSGBox3D" parent="CSGMesh3D"]
+transform = Transform3D(8.74871, 0, 0, 0, 1, 0, 0, 0, 12.7373, 0, -0.488225, 0)
+material = SubResource("ShaderMaterial_6m7py")
+
+[node name="CSGBox3D2" type="CSGBox3D" parent="CSGMesh3D"]
+transform = Transform3D(8.74871, 0, 0, 0, 1, 0, 0, 0, 12.7373, 2.75533, 0.498256, 2.60126)
+size = Vector3(0.370117, 0.972961, 0.591553)
+material = SubResource("ShaderMaterial_6m7py")
+
+[node name="CSGSphere3D" type="CSGSphere3D" parent="CSGMesh3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.10673, -4.72137)
+radius = 1.30736
+material = SubResource("ShaderMaterial_fgmgd")
+
+[node name="CSGMesh3D" type="CSGMesh3D" parent="CSGMesh3D"]
+transform = Transform3D(-2.29503, 0, -2.09815e-07, 0, 1, 0, 2.00638e-07, 0, -2.4, 0.0155739, 0.497283, 0)
+mesh = SubResource("PrismMesh_otleo")
+material = SubResource("ShaderMaterial_s3n8f")
+
+[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="."]
+_spawnable_scenes = PackedStringArray("uid://033l6d1xwpaa")
+spawn_path = NodePath("../Players")
+
+[node name="Control" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_md15r")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Control"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -105.0
+offset_right = 560.0
+grow_vertical = 0
+alignment = 1
+
+[node name="Listen" type="Button" parent="Control/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Make Listen Server"
+
+[node name="Client" type="Button" parent="Control/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Make Client"
+
+[node name="Server" type="Button" parent="Control/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Make Server"
+
+[node name="Label" type="Label" parent="Control"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -20.0
+offset_right = 20.0
+offset_bottom = 23.0
+grow_horizontal = 2
+text = "Time: "
+label_settings = SubResource("LabelSettings_otleo")
+
+[node name="Players" type="Node" parent="."]

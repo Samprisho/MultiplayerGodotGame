@@ -1,0 +1,46 @@
+[gd_scene load_steps=8 format=3 uid="uid://033l6d1xwpaa"]
+
+[ext_resource type="Script" uid="uid://bxir0xdv6kr02" path="res://scripts/player.gd" id="1_p0vlq"]
+[ext_resource type="Shader" uid="uid://c7w0qn2c6k0dr" path="res://materials/ToonShader.tres" id="2_v6fml"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_5q5h1"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_3li8b"]
+render_priority = 0
+shader = ExtResource("2_v6fml")
+shader_parameter/Albedo = Color(1, 1, 1, 1)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_5q5h1"]
+material = SubResource("ShaderMaterial_3li8b")
+radial_segments = 20
+rings = 10
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_v6fml"]
+render_priority = 0
+shader = ExtResource("2_v6fml")
+shader_parameter/Albedo = Color(1, 1, 1, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_3li8b"]
+material = SubResource("ShaderMaterial_v6fml")
+top_radius = 0.0
+height = 0.945
+radial_segments = 5
+
+[node name="Player" type="CharacterBody3D"]
+script = ExtResource("1_p0vlq")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("CapsuleShape3D_5q5h1")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+mesh = SubResource("CapsuleMesh_5q5h1")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 1.35242, -0.56901)
+mesh = SubResource("CylinderMesh_3li8b")
+
+[node name="Timer" type="Timer" parent="."]
+process_callback = 0
+autostart = true
