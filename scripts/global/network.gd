@@ -23,7 +23,7 @@ enum PacketType {
 	MOVEMENT_INPUT,
 	MOVEMENT_UPDATE,
 	CLIENT_ASSOCIATION,
-	SERVER_CORRECTION,  # New packet type for server corrections
+	SERVER_CORRECTION,
 }
 
 func create_client() -> void:
@@ -39,6 +39,8 @@ func _ready() -> void:
 	multiplayer.connected_to_server.connect(_client_connected)
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	
+	
 
 func _physics_process(delta: float) -> void:
 	lobbyTime += 1

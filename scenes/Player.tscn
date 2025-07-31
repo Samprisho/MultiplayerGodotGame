@@ -26,8 +26,10 @@ top_radius = 0.0
 height = 0.945
 radial_segments = 5
 
-[node name="Player" type="CharacterBody3D"]
+[node name="Player" type="CharacterBody3D" node_paths=PackedStringArray("camera", "mesh")]
 script = ExtResource("1_p0vlq")
+camera = NodePath("Camera3D")
+mesh = NodePath("MeshInstance3D")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
@@ -37,10 +39,11 @@ shape = SubResource("CapsuleShape3D_5q5h1")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 mesh = SubResource("CapsuleMesh_5q5h1")
 
-[node name="MeshInstance3D2" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 1.35242, -0.56901)
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0.35242, -0.56901)
 mesh = SubResource("CylinderMesh_3li8b")
+skeleton = NodePath("../..")
 
-[node name="Timer" type="Timer" parent="."]
-process_callback = 0
-autostart = true
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.64788, 0)
+fov = 110.0

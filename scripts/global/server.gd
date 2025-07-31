@@ -7,7 +7,7 @@ var client_state_history: Dictionary = {}  # client_id -> Array of states
 var deltaTime: float = 0
 
 # Correction sending frequency (don't send every frame)
-var correction_interval: int = 15  # Send corrections every 5 frames
+var correction_interval: int = 30  # Send corrections every 5 frames
 var correction_counter: int = 0
 
 func create_server() -> void:
@@ -133,18 +133,26 @@ func server_handle_movement_input(client: PacketPeerUDP, packet_data: PackedByte
 	# Decode motion
 	var motion_x = float(packet_data[offset]) / 127.0
 	if motion_x > 1.0:
-		motion_x = (motion_x - 256.0) / 127.0
+		motion_x = -1
 	
-	var motion_y = float(packet_data[offset + 1]) / 127.0
+	offset += 1
+	
+	var motion_y = float(packet_data[offset]) / 127.0
 	if motion_y > 1.0:
-		motion_y = (motion_y - 256.0) / 127.0
+		motion_y = -1
 	
-	var motion = Vector2(motion_x, motion_y)
+	offset += 1
+	var motion: Vector2 = Vector2(motion_x, motion_y)
 	
-	# Store input in history
+	var rotation: Vector3 = bytes_to_var(packet_data.slice(offset, offset + 16)) as Vector3
+	
+	print(client_id, rotation)
+	
+	# Store input in historys
 	var input_record = {
 		"sequence": sequence_number,
 		"motion": motion,
+		"rotation": rotation,
 		"timestamp": Network.serverLobbyTime
 	}
 	
@@ -168,7 +176,8 @@ func server_handle_movement_input(client: PacketPeerUDP, packet_data: PackedByte
 	var old_position = player.position
 	var old_velocity = player.velocity
 	
-	player.server_move(deltaTime, motion)
+	player.global_rotation = rotation
+	player.server_move(deltaTime, motion, rotation)
 	
 	# Store authoritative state
 	var state_record = {
