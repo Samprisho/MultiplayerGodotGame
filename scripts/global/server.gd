@@ -22,6 +22,7 @@ func create_server() -> void:
 		multiplayer.multiplayer_peer = peer
 		print("Server created on port ", Network.PORT)
 		start_udp_server()
+		SignalBus.joined_game.emit(0)
 	else:
 		print("Failed to create server: ", error)
 
@@ -38,6 +39,7 @@ func create_listen_server() -> void:
 		print("Server: Listen server created on port ", Network.PORT)
 		start_udp_server()
 		spawn_player(1)
+		SignalBus.joined_game.emit(1)
 	else:
 		print("Server: Failed to create listen server: ", error)
 
@@ -145,14 +147,18 @@ func server_handle_movement_input(client: PacketPeerUDP, packet_data: PackedByte
 	var motion: Vector2 = Vector2(motion_x, motion_y)
 	
 	var rotation: Vector3 = bytes_to_var(packet_data.slice(offset, offset + 16)) as Vector3
+	offset += 16
 	
-	print(client_id, rotation)
+	var wants_jump: bool = bool(packet_data[offset])
+	
+	print(client_id, wants_jump)
 	
 	# Store input in historys
 	var input_record = {
 		"sequence": sequence_number,
 		"motion": motion,
 		"rotation": rotation,
+		"wants_to_jump": wants_jump,
 		"timestamp": Network.serverLobbyTime
 	}
 	
@@ -177,7 +183,16 @@ func server_handle_movement_input(client: PacketPeerUDP, packet_data: PackedByte
 	var old_velocity = player.velocity
 	
 	player.global_rotation = rotation
-	player.server_move(deltaTime, motion, rotation)
+	
+	var player_input = Player.PlayerInput.new(
+		motion,
+		Network.lobbyTime,
+		sequence_number,
+		rotation,
+		wants_jump
+	)
+	
+	player.server_move(deltaTime, player_input)
 	
 	# Store authoritative state
 	var state_record = {

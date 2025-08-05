@@ -9,6 +9,10 @@ func _ready() -> void:
 	listen.pressed.connect(Network.create_listen_server)
 	client.pressed.connect(Network.create_client)
 	server.pressed.connect(Network.create_server)
-
+	
+	SignalBus.joined_game.connect(on_joined_game)
 func _process(delta: float) -> void:
 	time.text = "lobby: %s. Server: %s" % [Network.lobbyTime, Network.serverLobbyTime]
+
+func on_joined_game(id: int) -> void:
+	$HBoxContainer.visible = false

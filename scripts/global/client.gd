@@ -20,6 +20,7 @@ func create_client() -> void:
 		if udpError == OK:
 			print("Client: Connected to %s" % [Network.IP_ADDRESS])
 			client_send_udp_association_packet()
+			SignalBus.joined_game.emit(multiplayer.multiplayer_peer.get_unique_id())
 		else:
 			print("ENet peer %s connected, but the UDP FAILED!!!!" %
 			[multiplayer.multiplayer_peer.get_unique_id()])

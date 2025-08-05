@@ -6,6 +6,7 @@ class_name Player
 @export var mesh: MeshInstance3D
 @export var accelaration: float = 50
 @export var constantBraking: float = 10
+@export var jumpVelocity: float = 5
 
 var state_buffer: Array = []
 var input_buffer: Array = []
@@ -58,6 +59,8 @@ class PlayerState:
 
 class PlayerInput:
 	var motion: Vector2
+	var wants_to_jump: bool
+	var ability_1_pressed: bool
 	var rotation: Vector3
 	var timestamp: int
 	var sequence_number: int
@@ -66,13 +69,15 @@ class PlayerInput:
 		input: Vector2, 
 		time: int, 
 		seq: int, 
-		rot: Vector3
+		rot: Vector3,
+		jump: bool
 		):
 			
 		motion = input
 		timestamp = time
 		sequence_number = seq
 		rotation = rot
+		wants_to_jump = jump
 
 # Prediction buffers
 
@@ -118,7 +123,12 @@ func _physics_process(delta: float) -> void:
 		Input.get_action_strength("MoveBackward") - Input.get_action_strength("MoveForward"))
 	
 	# Create input record with sequence number
-	var player_input = PlayerInput.new(motion, Network.lobbyTime, sequence_counter, global_rotation)
+	var player_input = PlayerInput.new(motion,
+	Network.lobbyTime,
+	sequence_counter, 
+	global_rotation,
+	Input.is_action_pressed("Jump")
+	)
 	
 	# Store input in buffer
 	add_to_input_buffer(player_input)
@@ -149,7 +159,7 @@ func simulate_movement_with_physics(
 	var original_vel = velocity
 	
 	# Apply the same movement logic as server_move
-	var calculatedVelocity = calculate_movement(delta, input.motion, input.rotation)
+	var calculatedVelocity = calculate_movement(delta, input)
 	velocity = calculatedVelocity
 	move_and_slide()
 	
@@ -170,7 +180,7 @@ func simulate_movement_for_replay(
 	velocity = state.velocity
 	
 	# Apply movement
-	var calculatedVelocity = calculate_movement(delta, input.motion, input.rotation)
+	var calculatedVelocity = calculate_movement(delta, input)
 	velocity = calculatedVelocity
 	move_and_slide()
 	
@@ -194,10 +204,8 @@ func send_input_to_server(input: PlayerInput):
 	var packet_data = PackedByteArray()
 	packet_data.append(Network.PacketType.MOVEMENT_INPUT)
 	
-	# Pack sequence number
 	packet_data.append_array(var_to_bytes(input.sequence_number))
 	
-	# Pack motion (convert to bytes properly)
 	var motion_x = int(input.motion.x * 127) if input.motion.x >= 0  \
 					else (256 + int(input.motion.x * 127))
 
@@ -209,6 +217,8 @@ func send_input_to_server(input: PlayerInput):
 	packet_data.append(motion_y)
 	
 	packet_data.append_array(var_to_bytes(input.rotation))
+	
+	packet_data.append(input.wants_to_jump)
 	
 	Network.udpClient.put_packet(packet_data)
 
@@ -278,7 +288,7 @@ func receive_server_correction(
 		
 		# Apply movement using the same physics
 		var calculatedVelocity = \
-			calculate_movement(assumed_delta, input_to_replay.motion, input_to_replay.rotation)
+			calculate_movement(assumed_delta, input_to_replay)
 			
 		velocity = calculatedVelocity
 		move_and_slide()
@@ -307,7 +317,7 @@ func cleanup_old_data():
 	while input_buffer.size() > 0 and input_buffer[0].timestamp < cutoff_time:
 		input_buffer.pop_front()
 
-func calculate_movement(delta: float, motion: Vector2, rot: Vector3) -> Vector3:
+func calculate_movement(delta: float, player_input: PlayerInput) -> Vector3:
 	"""Calculate movement - this MUST match server logic exactly"""
 	var calculatedVelocity = Vector3(0, 0, 0)
 	
@@ -318,18 +328,25 @@ func calculate_movement(delta: float, motion: Vector2, rot: Vector3) -> Vector3:
 	# Gravity
 	calculatedVelocity.y = velocity.y - (delta * gravity)
 	
-	var inputRot = rot.y
+	var inputRot = player_input.rotation.y
 	
-	var basisX = Vector3.RIGHT.rotated(up_direction, inputRot) * motion.x
-	var basisZ = Vector3.FORWARD.rotated(up_direction, inputRot) * -motion.y
+	var basisX = Vector3.RIGHT.rotated(up_direction, inputRot) * player_input.motion.x
+	var basisZ = Vector3.FORWARD.rotated(up_direction, inputRot) * -player_input.motion.y
 	var direction = (basisX + basisZ).normalized()
+	
+	if can_jump(player_input.wants_to_jump):
+		calculatedVelocity += Vector3(0, jumpVelocity, 0)
+		print("jumpedd!")
 	
 	calculatedVelocity += direction * accelaration * delta
 	return calculatedVelocity
 
-func server_move(delta: float, motion: Vector2, rot: Vector3) -> Vector3:
+func can_jump(wants_to_jump: bool) -> bool:
+	return wants_to_jump && is_on_floor()
+
+func server_move(delta: float, player_input: PlayerInput) -> Vector3:
 	"""Server-side movement - uses the same logic as client prediction"""
-	var velocityToApply = calculate_movement(delta, motion, rot)
+	var velocityToApply = calculate_movement(delta, player_input)
 	velocity = velocityToApply
 	move_and_slide()
 	return position
