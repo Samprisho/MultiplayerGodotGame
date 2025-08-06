@@ -56,7 +56,7 @@ func _physics_process(delta: float) -> void:
 	if udpServer and udpServer.is_listening() and multiplayer.is_server():
 		Server.server_process(delta)
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	pass
 
 func _on_peer_connected(id: int):

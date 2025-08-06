@@ -76,7 +76,7 @@ func start_udp_server():
 	print("Server: UDP server on %s:%s up and running" % 
 	[Network.IP_ADDRESS, Network.MOVEMENT_PORT])
 
-func server_send_current_state_to_client(delta: float, client: PacketPeerUDP):
+func server_send_current_state_to_client(_delta: float, client: PacketPeerUDP):
 	var players: Node = get_tree().current_scene.get_node_or_null("Players")
 	
 	if !players:
@@ -86,7 +86,7 @@ func server_send_current_state_to_client(delta: float, client: PacketPeerUDP):
 	var packet = PackedByteArray()
 	packet.append(Network.PacketType.MOVEMENT_UPDATE)
 	
-	for player: Player in players.get_children():
+	for player: CharacterBody3D in players.get_children():
 		packet.append_array(var_to_bytes(int(player.name)))
 		packet.append_array(var_to_bytes(player.position))
 	
@@ -103,7 +103,7 @@ func server_process_udp_packet(client: PacketPeerUDP, packet_data: PackedByteArr
 		Network.PacketType.CLIENT_ASSOCIATION:
 			server_handle_client_association(client, packet_data)
 
-func server_handle_time_sync(client: PacketPeerUDP, packet_part: PackedByteArray):
+func server_handle_time_sync(_client: PacketPeerUDP, _packet_part: PackedByteArray):
 	pass
 
 func server_handle_client_association(client: PacketPeerUDP, packet_data: PackedByteArray):
@@ -150,8 +150,7 @@ func server_handle_movement_input(client: PacketPeerUDP, packet_data: PackedByte
 	offset += 16
 	
 	var wants_jump: bool = bool(packet_data[offset])
-	
-	print(client_id, wants_jump)
+	offset += 1
 	
 	# Store input in historys
 	var input_record = {
@@ -173,18 +172,18 @@ func server_handle_movement_input(client: PacketPeerUDP, packet_data: PackedByte
 		client_input_history[client_id].pop_front()
 	
 	# Apply movement on server
-	var player: Player = get_tree().current_scene.get_node("Players").get_node_or_null(str(client_id))
+	var player: PlayerMovement = get_tree().current_scene.get_node("Players").get_node_or_null(str(client_id)).get_node("PlayerMovement")
 	
 	if !player:
 		printerr("Player doesn't exist: %s" % client_id)
 		return
 	
-	var old_position = player.position
-	var old_velocity = player.velocity
+	var _old_position = player.CharacterBody.position
+	var _old_velocity = player.CharacterBody.velocity
 	
-	player.global_rotation = rotation
+	player.CharacterBody.global_rotation = rotation
 	
-	var player_input = Player.PlayerInput.new(
+	var player_input = PlayerMovement.PlayerInput.new(
 		motion,
 		Network.lobbyTime,
 		sequence_number,
@@ -197,8 +196,8 @@ func server_handle_movement_input(client: PacketPeerUDP, packet_data: PackedByte
 	# Store authoritative state
 	var state_record = {
 		"sequence": sequence_number,
-		"position": player.position,
-		"velocity": player.velocity,
+		"position": player.CharacterBody.position,
+		"velocity": player.CharacterBody.velocity,
 		"timestamp": Network.serverLobbyTime
 	}
 	
@@ -213,7 +212,7 @@ func server_handle_movement_input(client: PacketPeerUDP, packet_data: PackedByte
 	
 	# Send correction if needed (not every frame to reduce bandwidth)
 	if correction_counter % correction_interval == 0:
-		send_server_correction(client, client_id, player.position, player.velocity, sequence_number)
+		send_server_correction(client, client_id, player.CharacterBody.position, player.CharacterBody.velocity, sequence_number)
 
 func send_server_correction(client: PacketPeerUDP, client_id: int, position: Vector3, velocity: Vector3, sequence: int):
 	"""Send authoritative correction to client"""

@@ -26,10 +26,7 @@ top_radius = 0.0
 height = 0.945
 radial_segments = 5
 
-[node name="Player" type="CharacterBody3D" node_paths=PackedStringArray("camera", "mesh")]
-script = ExtResource("1_p0vlq")
-camera = NodePath("Camera3D")
-mesh = NodePath("MeshInstance3D")
+[node name="Player" type="CharacterBody3D"]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
@@ -47,3 +44,10 @@ skeleton = NodePath("../..")
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.64788, 0)
 fov = 110.0
+
+[node name="PlayerMovement" type="Node" parent="." node_paths=PackedStringArray("CharacterBody", "camera", "mesh")]
+script = ExtResource("1_p0vlq")
+CharacterBody = NodePath("..")
+camera = NodePath("../Camera3D")
+mesh = NodePath("../MeshInstance3D")
+metadata/_custom_type_script = "uid://bxir0xdv6kr02"

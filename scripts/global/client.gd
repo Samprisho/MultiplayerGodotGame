@@ -28,7 +28,7 @@ func create_client() -> void:
 	else:
 		print("Failed to connect: ", error)
 
-func client_process(delta: float):
+func client_process(_delta: float):
 	# Process ALL available packets in one frame to prevent buffer buildup
 	var packets_processed = 0
 	var max_packets_per_frame = 20  # Safety limit
@@ -59,23 +59,27 @@ func client_movement_update(array_bytes: PackedByteArray):
 		var pos: Vector3 = array_bytes.decode_var(offset)
 		offset += array_bytes.decode_var_size(offset)
 		
-		var player: Player = get_tree().current_scene.get_node(
+		var Chara: CharacterBody3D = get_tree().current_scene.get_node(
 			"Players").get_node_or_null(str(id))
 		
+		if !Chara:
+			return
+		
+		var player: PlayerMovement = Chara.get_node("PlayerMovement")
 		if !player:
 			return
 		
 		if id != multiplayer.multiplayer_peer.get_unique_id():
 			# For other players, just interpolate to server position
 			DebugDraw3D.draw_sphere(pos, 0.5, Color.RED)
-			player.position = lerp(
-				player.position, pos, get_physics_process_delta_time() * 12)
+			player.CharacterBody.position = lerp(
+				player.CharacterBody.position, pos, get_physics_process_delta_time() * 12)
 		else:
 			# For local player, only apply if there's a big discrepancy
 			# (Most corrections should come via SERVER_CORRECTION packets)
-			if player.position.distance_to(pos) > 5.0:
-				print("Emergency position correction: ", player.position.distance_to(pos))
-				player.position = pos
+			if player.CharacterBody.position.distance_to(pos) > 5.0:
+				print("Emergency position correction: ", player.CharacterBody.position.distance_to(pos))
+				player.CharacterBody.position = pos
 			DebugDraw3D.draw_sphere(pos)
 
 func client_handle_server_correction(array_bytes: PackedByteArray):
@@ -103,8 +107,8 @@ func client_handle_server_correction(array_bytes: PackedByteArray):
 	offset += array_bytes.decode_var_size(offset)
 	
 	# Get our player and apply the correction
-	var player: Player = get_tree().current_scene.get_node(
-		"Players").get_node_or_null(str(player_id))
+	var player: PlayerMovement = get_tree().current_scene.get_node(
+		"Players").get_node_or_null(str(player_id)).get_node("PlayerMovement")
 	
 	if player:
 		player.receive_server_correction(server_position, server_velocity, sequence_number)
