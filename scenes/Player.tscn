@@ -1,9 +1,11 @@
-[gd_scene load_steps=8 format=3 uid="uid://033l6d1xwpaa"]
+[gd_scene load_steps=9 format=3 uid="uid://033l6d1xwpaa"]
 
 [ext_resource type="Script" uid="uid://bxir0xdv6kr02" path="res://scripts/player.gd" id="1_p0vlq"]
 [ext_resource type="Shader" uid="uid://c7w0qn2c6k0dr" path="res://materials/ToonShader.tres" id="2_v6fml"]
+[ext_resource type="Script" uid="uid://ds0kmw5gqodeg" path="res://scripts/ability.gd" id="3_3li8b"]
 
-[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_5q5h1"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_v6fml"]
+size = Vector3(1, 1.805, 1)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_3li8b"]
 render_priority = 0
@@ -30,7 +32,7 @@ radial_segments = 5
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
-shape = SubResource("CapsuleShape3D_5q5h1")
+shape = SubResource("BoxShape3D_v6fml")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
@@ -45,9 +47,16 @@ skeleton = NodePath("../..")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.64788, 0)
 fov = 110.0
 
-[node name="PlayerMovement" type="Node" parent="." node_paths=PackedStringArray("CharacterBody", "camera", "mesh")]
+[node name="PlayerComponent" type="Node" parent="." node_paths=PackedStringArray("CharacterBody", "camera", "mesh")]
 script = ExtResource("1_p0vlq")
 CharacterBody = NodePath("..")
 camera = NodePath("../Camera3D")
 mesh = NodePath("../MeshInstance3D")
 metadata/_custom_type_script = "uid://bxir0xdv6kr02"
+
+[node name="Ability" type="Node" parent="PlayerComponent" node_paths=PackedStringArray("characterBody", "playerComponent")]
+script = ExtResource("3_3li8b")
+characterBody = NodePath("../..")
+playerComponent = NodePath("..")
+inputs = Array[String](["Fire"])
+metadata/_custom_type_script = "uid://ds0kmw5gqodeg"

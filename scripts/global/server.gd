@@ -65,7 +65,10 @@ func server_process(delta: float):
 			packets_processed += 1
 		
 		if packets_processed >= max_packets:
-			print("Warning: Client sending too many packets: ", Network.get_client_id_from_UDP_peer(client))
+			print(
+				"Warning: Client sending too many packets: ",
+				Network.get_client_id_from_UDP_peer(client)
+			)
 		
 		server_send_current_state_to_client(delta, client)
 
@@ -89,6 +92,7 @@ func server_send_current_state_to_client(_delta: float, client: PacketPeerUDP):
 	for player: CharacterBody3D in players.get_children():
 		packet.append_array(var_to_bytes(int(player.name)))
 		packet.append_array(var_to_bytes(player.position))
+		packet.append_array(var_to_bytes(player.global_rotation))
 	
 	client.put_packet(packet)
 
@@ -98,8 +102,8 @@ func server_process_udp_packet(client: PacketPeerUDP, packet_data: PackedByteArr
 	match packet_type:
 		Network.PacketType.TIME_SYNC:
 			server_handle_time_sync(client, packet_data)
-		Network.PacketType.MOVEMENT_INPUT:
-			server_handle_movement_input(client, packet_data)
+		Network.PacketType.PLAYER_INPUT:
+			server_handle_player_input(client, packet_data)
 		Network.PacketType.CLIENT_ASSOCIATION:
 			server_handle_client_association(client, packet_data)
 
@@ -119,7 +123,7 @@ func server_handle_client_association(client: PacketPeerUDP, packet_data: Packed
 	print("Server: Associated UDP client %s:%s with ENet client %s" % 
 		[client.get_packet_ip(), client.get_packet_port(), client_id])
 
-func server_handle_movement_input(client: PacketPeerUDP, packet_data: PackedByteArray):
+func server_handle_player_input(client: PacketPeerUDP, packet_data: PackedByteArray):
 	var client_id = Network.get_client_id_from_UDP_peer(client)
 	
 	if client_id == -1:
@@ -172,7 +176,8 @@ func server_handle_movement_input(client: PacketPeerUDP, packet_data: PackedByte
 		client_input_history[client_id].pop_front()
 	
 	# Apply movement on server
-	var player: PlayerMovement = get_tree().current_scene.get_node("Players").get_node_or_null(str(client_id)).get_node("PlayerMovement")
+	var player: PlayerComponent = get_tree().current_scene.get_node("Players")\
+	.get_node_or_null(str(client_id)).get_node("PlayerComponent")
 	
 	if !player:
 		printerr("Player doesn't exist: %s" % client_id)
@@ -183,7 +188,7 @@ func server_handle_movement_input(client: PacketPeerUDP, packet_data: PackedByte
 	
 	player.CharacterBody.global_rotation = rotation
 	
-	var player_input = PlayerMovement.PlayerInput.new(
+	var player_input = PlayerComponent.PlayerInput.new(
 		motion,
 		Network.lobbyTime,
 		sequence_number,
@@ -212,9 +217,21 @@ func server_handle_movement_input(client: PacketPeerUDP, packet_data: PackedByte
 	
 	# Send correction if needed (not every frame to reduce bandwidth)
 	if correction_counter % correction_interval == 0:
-		send_server_correction(client, client_id, player.CharacterBody.position, player.CharacterBody.velocity, sequence_number)
+		send_server_correction(
+			client, 
+			client_id, 
+			player.CharacterBody.position, 
+			player.CharacterBody.velocity, 
+			sequence_number
+		)
 
-func send_server_correction(client: PacketPeerUDP, client_id: int, position: Vector3, velocity: Vector3, sequence: int):
+func send_server_correction(
+	client: PacketPeerUDP, 
+	client_id: int, 
+	position: Vector3, 
+	velocity: Vector3, 
+	sequence: int
+	):
 	"""Send authoritative correction to client"""
 	var packet = PackedByteArray()
 	packet.append(Network.PacketType.SERVER_CORRECTION)
@@ -238,14 +255,17 @@ func spawn_player(id: int):
 		return
 		
 	var player = preload("res://scenes/Player.tscn").instantiate()
-	get_tree().current_scene.get_node("Players").call_deferred("add_child", player)
+	get_tree().current_scene.get_node("Players")\
+	.call_deferred("add_child", player)
 	
 	if player:
 		player.name = str(id)
 
 func remove_player(id: int):
 	print("attempting to remove player %s" % id)
-	var player = get_tree().current_scene.get_node("Players").get_node_or_null(str(id))
+	var player = get_tree().current_scene.get_node("Players")\
+	.get_node_or_null(str(id))
+	
 	if player:
 		player.queue_free()
 	

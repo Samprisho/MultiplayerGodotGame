@@ -1,6 +1,6 @@
 # Modified player.gd
 extends Node
-class_name PlayerMovement
+class_name PlayerComponent
 
 @export var CharacterBody: CharacterBody3D
 @export var camera: Camera3D
@@ -8,10 +8,11 @@ class_name PlayerMovement
 @export var accelaration: float = 50
 @export var constantBraking: float = 10
 @export var jumpVelocity: float = 5
+@export var airControl: float = 0.1
 
 var state_buffer: Array = []
 var input_buffer: Array = []
-var buffer_size: int = 120  # 2 seconds at 60fps
+var buffer_size: int = 120 # 2 seconds at 60fps
 var sequence_counter: int = 0
 var current_predicted_state: PlayerState
 
@@ -22,6 +23,8 @@ var velocity_tolerance: float = 1
 # TODO: Make save data for settings
 var mouseSensitivity: float = 0.002
 var cameraClampLookUp: float = 80
+
+var abilities: Array[Ability]
 
 var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
 
@@ -35,9 +38,19 @@ var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
 # the next 2 weeks, then I won't need AI for this!
 
 ## Who the fuck am I talking to???
-# OH MY GOD WAIT...there's an arab funny addon in the aset library
+# OH MY GOD WAIT...there's an arab funny addon in the asset library
 # ...
 # finally, something useful
+
+## Update 1
+# ok ngl this is something you're designed to implemnt in .NET, but idgaf.
+# If they didn't want me to do something like this, they woulda kept
+# UDPPacketPeer and UDPServer private.
+
+## Update 2
+# I now understand the prediction and replay code :thumbs_up:
+
+## Fuck, I should have dated these updates
 
 # Client-side prediction data
 class PlayerState:
@@ -47,12 +60,11 @@ class PlayerState:
 	var sequence_number: int
 	
 	func _init(
-		pos: Vector3 = Vector3.ZERO, 
+		pos: Vector3 = Vector3.ZERO,
 		vel: Vector3 = Vector3.ZERO,
-		time: int = 0, 
+		time: int = 0,
 		seq: int = 0
 		):
-		
 		position = pos
 		velocity = vel
 		timestamp = time
@@ -68,13 +80,12 @@ class PlayerInput:
 	var ability_1_pressed: bool
 	
 	func _init(
-		input: Vector2, 
-		time: int, 
-		seq: int, 
+		input: Vector2,
+		time: int,
+		seq: int,
 		rot: Vector3,
 		jump: bool
 		):
-			
 		motion = input
 		timestamp = time
 		sequence_number = seq
@@ -94,27 +105,42 @@ func _ready():
 	current_predicted_state = \
 		PlayerState.new(CharacterBody.global_position, CharacterBody.velocity, Network.lobbyTime, 0)
 	
+	for child in range(0, get_child_count()):
+		var component = get_child(child)
+		
+		if component is Ability:
+			abilities.append(component)
+	
 	if multiplayer.multiplayer_peer.get_unique_id() == int(CharacterBody.name):
 		camera.make_current()
 		mesh.visible = false
+	
 
 func _input(event: InputEvent) -> void:
 	if not is_multiplayer_authority():
 		return
+	
+	for ability in abilities:
+		var triggered: bool = false
+		for pollInput in ability.inputs:
+			if event.is_action(pollInput):
+				ability.client_activate()
+				break
+			
 	
 	if event.is_action("Pause"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	
 	if event is InputEventMouseMotion \
 	&& Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		
 		CharacterBody.rotate_y(-event.relative.x * mouseSensitivity)
 		camera.rotate_x(-event.relative.y * mouseSensitivity)
 		camera.rotation.x = clampf(
-			camera.rotation.x, 
-			-deg_to_rad(cameraClampLookUp), 
+			camera.rotation.x,
+			- deg_to_rad(cameraClampLookUp),
 			deg_to_rad(cameraClampLookUp))
-			
+	
+	
 
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
@@ -128,7 +154,7 @@ func _physics_process(delta: float) -> void:
 	var player_input = PlayerInput.new(
 		motion,
 		Network.lobbyTime,
-		sequence_counter, 
+		sequence_counter,
 		CharacterBody.global_rotation,
 		Input.is_action_pressed("Jump")
 	)
@@ -150,12 +176,11 @@ func _physics_process(delta: float) -> void:
 	sequence_counter += 1
 	
 	# Clean old data periodically
-	if sequence_counter % 60 == 0:  # Every second
+	if sequence_counter % 60 == 0: # Every second
 		cleanup_old_data()
 
 func simulate_movement_with_physics(
 	input: PlayerInput, delta: float) -> PlayerState:
-	
 	"""Simulate movement using move_and_slide - MUST match server logic exactly"""
 	# Store current state to restore later if needed
 	var _original_pos = CharacterBody.global_position
@@ -168,9 +193,9 @@ func simulate_movement_with_physics(
 	
 	# Create state record with the result
 	var new_state = PlayerState.new(
-		CharacterBody.global_position, 
-		CharacterBody.velocity, 
-		input.timestamp, 
+		CharacterBody.global_position,
+		CharacterBody.velocity,
+		input.timestamp,
 		input.sequence_number
 	)
 	
@@ -178,7 +203,6 @@ func simulate_movement_with_physics(
 
 func simulate_movement_for_replay(
 	state: PlayerState, input: PlayerInput, delta: float) -> PlayerState:
-	
 	"""Simulate movement for replay - temporarily sets position and velocity"""
 	# Temporarily set position and velocity to the replay state
 	var _original_pos = CharacterBody.global_position
@@ -194,9 +218,9 @@ func simulate_movement_for_replay(
 	
 	# Create new state with results
 	var new_state = PlayerState.new(
-		CharacterBody.global_position, 
-		CharacterBody.velocity, 
-		input.timestamp, 
+		CharacterBody.global_position,
+		CharacterBody.velocity,
+		input.timestamp,
 		input.sequence_number
 	)
 	
@@ -215,11 +239,11 @@ func add_to_input_buffer(input: PlayerInput):
 
 func send_input_to_server(input: PlayerInput):
 	var packet_data = PackedByteArray()
-	packet_data.append(Network.PacketType.MOVEMENT_INPUT)
+	packet_data.append(Network.PacketType.PLAYER_INPUT)
 	
 	packet_data.append_array(var_to_bytes(input.sequence_number))
 	
-	var motion_x = int(input.motion.x * 127) if input.motion.x >= 0  \
+	var motion_x = int(input.motion.x * 127) if input.motion.x >= 0 \
 					else (256 + int(input.motion.x * 127))
 
 	var motion_y = int(input.motion.y * 127) if input.motion.y >= 0 \
@@ -237,7 +261,6 @@ func send_input_to_server(input: PlayerInput):
 
 func receive_server_correction(
 	server_position: Vector3, server_velocity: Vector3, server_sequence: int):
-	
 	"""Handle server correction with reconciliation using move_and_slide"""
 	
 	# Find the state that corresponds to this server correction
@@ -261,7 +284,7 @@ func receive_server_correction(
 	var velocity_error = old_state.velocity.distance_to(server_velocity)
 	
 	if position_error < position_tolerance and velocity_error < velocity_tolerance:
-		return  # No significant error
+		return # No significant error
 	
 	print("Applying server correction. Pos error: %.2f, Vel error: %.2f" %
 	 [position_error, velocity_error])
@@ -294,7 +317,7 @@ func receive_server_correction(
 	CharacterBody.velocity = server_velocity
 	
 	# Replay all inputs from correction point to present using move_and_slide
-	var assumed_delta = 1.0 / 60.0  # Assume 60fps for replay
+	var assumed_delta = 1.0 / 60.0 # Assume 60fps for replay
 	
 	for i in range(input_index + 1, input_buffer.size()):
 		var input_to_replay: PlayerInput = input_buffer[i]
@@ -308,9 +331,9 @@ func receive_server_correction(
 		
 		# Store the replayed state
 		var replayed_state = PlayerState.new(
-			CharacterBody.global_position, 
+			CharacterBody.global_position,
 			CharacterBody.velocity,
-			input_to_replay.timestamp, 
+			input_to_replay.timestamp,
 			input_to_replay.sequence_number
 		)
 		
@@ -321,7 +344,7 @@ func receive_server_correction(
 		current_predicted_state = state_buffer[-1]
 
 func cleanup_old_data():
-	var cutoff_time = Network.lobbyTime - 120  # Keep 2 seconds of data
+	var cutoff_time = Network.lobbyTime - 120 # Keep 2 seconds of data
 	
 	# Clean state buffer
 	while state_buffer.size() > 0 and state_buffer[0].timestamp < cutoff_time:
@@ -337,10 +360,10 @@ func calculate_movement(delta: float, player_input: PlayerInput) -> Vector3:
 	
 	# Braking
 	calculatedVelocity.x = CharacterBody.velocity.x \
-		- (CharacterBody.velocity.x * delta * constantBraking)
+		- (CharacterBody.velocity.x * delta * constantBraking * (1.0 if CharacterBody.is_on_floor() else airControl))
 	
-	calculatedVelocity.z = CharacterBody.velocity.z  \
-		- (CharacterBody.velocity.z * delta * constantBraking)
+	calculatedVelocity.z = CharacterBody.velocity.z \
+		- (CharacterBody.velocity.z * delta * constantBraking * (1.0 if CharacterBody.is_on_floor() else airControl))
 	
 	# Gravity
 	calculatedVelocity.y = CharacterBody.velocity.y - (delta * gravity)
@@ -353,8 +376,12 @@ func calculate_movement(delta: float, player_input: PlayerInput) -> Vector3:
 	
 	if can_jump(player_input.wants_to_jump):
 		calculatedVelocity += Vector3(0, jumpVelocity, 0)
-	
-	calculatedVelocity += direction * accelaration * delta
+
+	if CharacterBody.is_on_floor():
+		calculatedVelocity += (direction * accelaration) * delta
+	else:
+		calculatedVelocity += (direction * accelaration * airControl) * delta
+
 	return calculatedVelocity
 
 func can_jump(wants_to_jump: bool) -> bool:

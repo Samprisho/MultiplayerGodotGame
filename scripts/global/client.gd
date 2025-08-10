@@ -1,6 +1,10 @@
 # Modified client.gd
 extends Node
 
+var cl_interp_pos_speed: float = 30
+var cl_interp_rot_speed: float = 60
+
+
 func create_client() -> void:
 	print("Client: Creating client...")
 	
@@ -33,7 +37,9 @@ func client_process(_delta: float):
 	var packets_processed = 0
 	var max_packets_per_frame = 20  # Safety limit
 	
-	while Network.udpClient.get_available_packet_count() > 0 and packets_processed < max_packets_per_frame:
+	while Network.udpClient.get_available_packet_count() > 0 \
+	and packets_processed < max_packets_per_frame:
+		
 		var array_bytes = Network.udpClient.get_packet()
 		var packet_type = array_bytes[0]
 		
@@ -58,6 +64,8 @@ func client_movement_update(array_bytes: PackedByteArray):
 		offset += array_bytes.decode_var_size(offset)
 		var pos: Vector3 = array_bytes.decode_var(offset)
 		offset += array_bytes.decode_var_size(offset)
+		var rot: Vector3 = array_bytes.decode_var(offset)
+		offset += array_bytes.decode_var_size(offset)
 		
 		var Chara: CharacterBody3D = get_tree().current_scene.get_node(
 			"Players").get_node_or_null(str(id))
@@ -65,15 +73,24 @@ func client_movement_update(array_bytes: PackedByteArray):
 		if !Chara:
 			return
 		
-		var player: PlayerMovement = Chara.get_node("PlayerMovement")
+		var player: PlayerComponent = Chara.get_node("PlayerComponent")
 		if !player:
 			return
 		
 		if id != multiplayer.multiplayer_peer.get_unique_id():
 			# For other players, just interpolate to server position
-			DebugDraw3D.draw_sphere(pos, 0.5, Color.RED)
 			player.CharacterBody.position = lerp(
-				player.CharacterBody.position, pos, get_physics_process_delta_time() * 12)
+				player.CharacterBody.position, pos,  (get_physics_process_delta_time() * cl_interp_pos_speed)
+			)
+			
+			player.CharacterBody.global_rotation = Vector3(
+				lerp_angle(player.CharacterBody.rotation.x, rot.x, get_physics_process_delta_time() * cl_interp_rot_speed),
+				lerp_angle(player.CharacterBody.rotation.y, rot.y, get_physics_process_delta_time() * cl_interp_rot_speed),
+				lerp_angle(player.CharacterBody.rotation.z, rot.z, get_physics_process_delta_time() * cl_interp_rot_speed)
+			)
+			
+			
+
 		else:
 			# For local player, only apply if there's a big discrepancy
 			# (Most corrections should come via SERVER_CORRECTION packets)
@@ -107,11 +124,15 @@ func client_handle_server_correction(array_bytes: PackedByteArray):
 	offset += array_bytes.decode_var_size(offset)
 	
 	# Get our player and apply the correction
-	var player: PlayerMovement = get_tree().current_scene.get_node(
-		"Players").get_node_or_null(str(player_id)).get_node("PlayerMovement")
+	var player: PlayerComponent = get_tree().current_scene.get_node(
+		"Players").get_node_or_null(str(player_id)).get_node("PlayerComponent")
 	
 	if player:
-		player.receive_server_correction(server_position, server_velocity, sequence_number)
+		player.receive_server_correction(
+			server_position, 
+			server_velocity, 
+			sequence_number
+		)
 
 func client_send_udp_association_packet():
 	var packet = PackedByteArray()
