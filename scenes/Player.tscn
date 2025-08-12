@@ -1,8 +1,8 @@
-[gd_scene load_steps=9 format=3 uid="uid://033l6d1xwpaa"]
+[gd_scene load_steps=10 format=3 uid="uid://033l6d1xwpaa"]
 
 [ext_resource type="Script" uid="uid://bxir0xdv6kr02" path="res://scripts/player.gd" id="1_p0vlq"]
 [ext_resource type="Shader" uid="uid://c7w0qn2c6k0dr" path="res://materials/ToonShader.tres" id="2_v6fml"]
-[ext_resource type="Script" uid="uid://ds0kmw5gqodeg" path="res://scripts/ability.gd" id="3_3li8b"]
+[ext_resource type="Script" uid="uid://cijjeepdn1rk5" path="res://scripts/abilities/explosion.gd" id="3_3li8b"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_v6fml"]
 size = Vector3(1, 1.805, 1)
@@ -28,6 +28,9 @@ top_radius = 0.0
 height = 0.945
 radial_segments = 5
 
+[sub_resource type="SphereShape3D" id="SphereShape3D_3li8b"]
+radius = 4.0
+
 [node name="Player" type="CharacterBody3D"]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
@@ -47,16 +50,20 @@ skeleton = NodePath("../..")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.64788, 0)
 fov = 110.0
 
-[node name="PlayerComponent" type="Node" parent="." node_paths=PackedStringArray("CharacterBody", "camera", "mesh")]
+[node name="PlayerComponent" type="Node3D" parent="." node_paths=PackedStringArray("CharacterBody", "camera", "mesh")]
 script = ExtResource("1_p0vlq")
 CharacterBody = NodePath("..")
 camera = NodePath("../Camera3D")
 mesh = NodePath("../MeshInstance3D")
-metadata/_custom_type_script = "uid://bxir0xdv6kr02"
 
-[node name="Ability" type="Node" parent="PlayerComponent" node_paths=PackedStringArray("characterBody", "playerComponent")]
+[node name="Abilities" type="Node3D" parent="PlayerComponent"]
+
+[node name="Explosion" type="Node3D" parent="PlayerComponent/Abilities" node_paths=PackedStringArray("shapecast")]
 script = ExtResource("3_3li8b")
-characterBody = NodePath("../..")
-playerComponent = NodePath("..")
+shapecast = NodePath("ShapeCast3D")
+cost = 0
 inputs = Array[String](["Fire"])
-metadata/_custom_type_script = "uid://ds0kmw5gqodeg"
+
+[node name="ShapeCast3D" type="ShapeCast3D" parent="PlayerComponent/Abilities/Explosion"]
+shape = SubResource("SphereShape3D_3li8b")
+target_position = Vector3(0, 0, 0)

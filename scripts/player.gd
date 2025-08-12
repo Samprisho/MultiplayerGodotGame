@@ -5,6 +5,13 @@ class_name PlayerComponent
 @export var CharacterBody: CharacterBody3D
 @export var camera: Camera3D
 @export var mesh: MeshInstance3D
+
+@export var maxHealth: int = 100
+@export var health: int = maxHealth
+@export var maxTension: int = 100
+@export var tension: int = 0
+
+# Movement settings
 @export var accelaration: float = 50
 @export var constantBraking: float = 10
 @export var jumpVelocity: float = 5
@@ -14,7 +21,9 @@ var state_buffer: Array = []
 var input_buffer: Array = []
 var buffer_size: int = 120 # 2 seconds at 60fps
 var sequence_counter: int = 0
+
 var current_predicted_state: PlayerState
+var current_input: PlayerInput
 
 # Reconciliation threshold
 var position_tolerance: float = 0.5
@@ -23,6 +32,8 @@ var velocity_tolerance: float = 1
 # TODO: Make save data for settings
 var mouseSensitivity: float = 0.002
 var cameraClampLookUp: float = 80
+
+var accept_server_corrections: bool = true
 
 var abilities: Array[Ability]
 
@@ -43,7 +54,7 @@ var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
 # finally, something useful
 
 ## Update 1
-# ok ngl this is something you're designed to implemnt in .NET, but idgaf.
+# ok ngl this is something you're supposed to implemnt in .NET, but idgaf.
 # If they didn't want me to do something like this, they woulda kept
 # UDPPacketPeer and UDPServer private.
 
@@ -77,8 +88,6 @@ class PlayerInput:
 	var timestamp: int
 	var sequence_number: int
 	
-	var ability_1_pressed: bool
-	
 	func _init(
 		input: Vector2,
 		time: int,
@@ -92,8 +101,6 @@ class PlayerInput:
 		rotation = rot
 		wants_to_jump = jump
 
-# Prediction buffers
-
 
 func _enter_tree():
 	CharacterBody.set_multiplayer_authority(CharacterBody.name.to_int())
@@ -105,11 +112,11 @@ func _ready():
 	current_predicted_state = \
 		PlayerState.new(CharacterBody.global_position, CharacterBody.velocity, Network.lobbyTime, 0)
 	
-	for child in range(0, get_child_count()):
-		var component = get_child(child)
-		
-		if component is Ability:
-			abilities.append(component)
+	for child in $Abilities.get_children():
+		if child is Ability:
+			abilities.append(child)
+			child.characterBody = CharacterBody
+			child.playerComponent = self
 	
 	if multiplayer.multiplayer_peer.get_unique_id() == int(CharacterBody.name):
 		camera.make_current()
@@ -118,15 +125,7 @@ func _ready():
 
 func _input(event: InputEvent) -> void:
 	if not is_multiplayer_authority():
-		return
-	
-	for ability in abilities:
-		var triggered: bool = false
-		for pollInput in ability.inputs:
-			if event.is_action(pollInput):
-				ability.client_activate()
-				break
-			
+		return			
 	
 	if event.is_action("Pause"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -158,6 +157,14 @@ func _physics_process(delta: float) -> void:
 		CharacterBody.global_rotation,
 		Input.is_action_pressed("Jump")
 	)
+
+	current_input = player_input
+
+	for ability in abilities:
+		for input_action in ability.inputs:
+			if Input.is_action_just_pressed(input_action):
+				ability.local_request_activate()
+				break
 	
 	# Store input in buffer
 	add_to_input_buffer(player_input)
@@ -263,6 +270,9 @@ func receive_server_correction(
 	server_position: Vector3, server_velocity: Vector3, server_sequence: int):
 	"""Handle server correction with reconciliation using move_and_slide"""
 	
+	if not accept_server_corrections:
+		return
+
 	# Find the state that corresponds to this server correction
 	var correction_index = -1
 	for i in range(state_buffer.size()):
