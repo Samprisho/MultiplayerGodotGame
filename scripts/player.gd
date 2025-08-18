@@ -17,13 +17,17 @@ class_name PlayerComponent
 @export var jumpVelocity: float = 5
 @export var airControl: float = 0.1
 
+@export var movementTest: bool = false
+var movementTestInterval: float = 0
+
 var state_buffer: Array = []
 var input_buffer: Array = []
-var buffer_size: int = 120 # 2 seconds at 60fps
+var buffer_size: int = 800
 var sequence_counter: int = 0
 
 var current_predicted_state: PlayerState
 var current_input: PlayerInput
+var testMoveRight: bool = false
 
 # Reconciliation threshold
 var position_tolerance: float = 0.5
@@ -122,10 +126,13 @@ func _ready():
 		camera.make_current()
 		mesh.visible = false
 	
+	if !multiplayer.is_server():
+		movementTest = Client.isDummyClient
+
 
 func _input(event: InputEvent) -> void:
 	if not is_multiplayer_authority():
-		return			
+		return
 	
 	if event.is_action("Pause"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -140,12 +147,23 @@ func _input(event: InputEvent) -> void:
 			deg_to_rad(cameraClampLookUp))
 	
 	
-
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
 		return
 	
-	var motion = Vector2(
+	var motion = Vector2()
+
+	if movementTest:
+		movementTestInterval += delta
+		if movementTestInterval >= 0.6: # Every 600 milliseconds
+			movementTestInterval = 0
+			testMoveRight = not testMoveRight
+		motion = Vector2(
+			1 if testMoveRight else -1,
+			0
+		)
+	else:
+		motion = Vector2(
 		Input.get_action_strength("MoveRight") - Input.get_action_strength("MoveLeft"),
 		Input.get_action_strength("MoveBackward") - Input.get_action_strength("MoveForward"))
 	
@@ -185,6 +203,7 @@ func _physics_process(delta: float) -> void:
 	# Clean old data periodically
 	if sequence_counter % 60 == 0: # Every second
 		cleanup_old_data()
+
 
 func simulate_movement_with_physics(
 	input: PlayerInput, delta: float) -> PlayerState:
@@ -267,10 +286,34 @@ func send_input_to_server(input: PlayerInput):
 	Network.udpClient.put_packet(packet_data)
 
 func receive_server_correction(
-	server_position: Vector3, server_velocity: Vector3, server_sequence: int):
+	server_position: Vector3, server_velocity: Vector3, server_sequence: int, isImpulse: bool = false):
 	"""Handle server correction with reconciliation using move_and_slide"""
 	
+	if isImpulse:
+		# If it's an impulse, apply it immediately
+		CharacterBody.global_position = server_position
+		CharacterBody.velocity = server_velocity
+
+		var impulse_correction_index = -1
+		for i in range(state_buffer.size()):
+			if state_buffer[i].sequence_number == server_sequence:
+				impulse_correction_index = i
+				break
+
+		var server_impulse_corrected_state = PlayerState.new(
+			server_position, server_velocity, current_input.timestamp, server_sequence)
+
+		state_buffer[impulse_correction_index] = server_impulse_corrected_state
+		current_predicted_state = server_impulse_corrected_state
+
+		# Remove all states after the corrected one (they're now invalid)
+		var states_to_invalidate = state_buffer.size() - impulse_correction_index - 1
+		for i in range(states_to_invalidate):
+			state_buffer.pop_back()
+		return
+
 	if not accept_server_corrections:
+		print("Server corrections not accepted for player: ", multiplayer.get_unique_id())
 		return
 
 	# Find the state that corresponds to this server correction
@@ -281,10 +324,7 @@ func receive_server_correction(
 			break
 	
 	if correction_index == -1:
-		print("Server correction too old, sequence: ", server_sequence)
-		# If too old, just snap to server position as emergency fallback
-		CharacterBody.global_position = server_position
-		CharacterBody.velocity = server_velocity
+		print("Server correction too old, sequence: ", server_sequence, ", ignoring")
 		return
 	
 	var old_state: PlayerState = state_buffer[correction_index]
@@ -354,7 +394,7 @@ func receive_server_correction(
 		current_predicted_state = state_buffer[-1]
 
 func cleanup_old_data():
-	var cutoff_time = Network.lobbyTime - 120 # Keep 2 seconds of data
+	var cutoff_time = Network.lobbyTime - 400
 	
 	# Clean state buffer
 	while state_buffer.size() > 0 and state_buffer[0].timestamp < cutoff_time:

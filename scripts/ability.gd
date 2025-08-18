@@ -8,7 +8,7 @@ var playerComponent: PlayerComponent
 @export var inputs: Array[String]
 
 var correctionTimer: Timer = Timer.new()
-var correctionInterval: float = 0.5
+var correctionInterval: float = 1.5
 
 var isActive: bool = false
 
@@ -22,12 +22,12 @@ func local_request_activate():
 	if !can_activate():
 		return
 
-	print("Client ",  multiplayer.get_unique_id(), " rpc to server")
+	print("Client ", multiplayer.get_unique_id(), " rpc to server")
 	rpc("owner_client_rpc_server")
 
 	client_prediction_start()
 
-@rpc("any_peer", "call_local", "unreliable_ordered")
+@rpc("any_peer", "call_local", "reliable")
 func owner_client_rpc_server():
 	if multiplayer.is_server():
 		print("I'm the server, I recieved this rpc from: ", multiplayer.get_remote_sender_id())
@@ -36,7 +36,7 @@ func owner_client_rpc_server():
 			server_execution_start()
 			rpc("multicast_activate", multiplayer.get_remote_sender_id())
 
-@rpc("any_peer", "call_local", "unreliable_ordered")
+@rpc("any_peer", "call_local", "reliable")
 func multicast_activate(id: int):
 	# We only want to run this on every other client
 	if multiplayer.get_unique_id() == multiplayer.get_remote_sender_id() or \
@@ -44,13 +44,13 @@ func multicast_activate(id: int):
 		return
 
 	print("Multi cast to: ", multiplayer.get_unique_id(), " from ", id)
-	server_execution_start()
+	multicast_notif()
+
 
 func client_prediction_start():
 	isActive = true
 
 func client_prediction_logic(_delta = 0.0):
-	
 	if should_end() || not isActive:
 		print("Ending ability prediction for client: ", multiplayer.get_unique_id())
 		client_prediction_end()
@@ -63,7 +63,6 @@ func server_execution_start():
 	isActive = true
 
 func server_execution_logic(_delta = 0.0):
-	
 	if should_end() || not isActive:
 		print("Ending ability execution for server")
 		server_execution_end()
@@ -72,6 +71,9 @@ func server_execution_logic(_delta = 0.0):
 
 func server_execution_end():
 	isActive = false
+
+func multicast_notif():
+	pass
 
 func _physics_process(delta: float) -> void:
 	if not isActive:

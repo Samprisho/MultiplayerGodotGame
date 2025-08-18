@@ -2,12 +2,12 @@
 extends Node
 
 # Store client input history for reconciliation
-var client_input_history: Dictionary = {}  # client_id -> Array of inputs
-var client_state_history: Dictionary = {}  # client_id -> Array of states
+var client_input_history: Dictionary = {} # client_id -> Array of inputs
+var client_state_history: Dictionary = {} # client_id -> Array of states
 var deltaTime: float = 0
 
 # Correction sending frequency (don't send every frame)
-var correction_interval: int = 30  # Send corrections every 5 frames
+var correction_interval: int = 30 # Send corrections every 5 frames
 var correction_counter: int = 0
 
 func create_server() -> void:
@@ -76,7 +76,7 @@ func start_udp_server():
 	print("Server: attempting to start udp server...")
 	Network.udpServer = UDPServer.new()
 	Network.udpServer.listen(Network.MOVEMENT_PORT)
-	print("Server: UDP server on %s:%s up and running" % 
+	print("Server: UDP server on %s:%s up and running" %
 	[Network.IP_ADDRESS, Network.MOVEMENT_PORT])
 
 func server_send_current_state_to_client(_delta: float, client: PacketPeerUDP):
@@ -120,7 +120,7 @@ func server_handle_client_association(client: PacketPeerUDP, packet_data: Packed
 	client_input_history[client_id] = []
 	client_state_history[client_id] = []
 	
-	print("Server: Associated UDP client %s:%s with ENet client %s" % 
+	print("Server: Associated UDP client %s:%s with ENet client %s" %
 		[client.get_packet_ip(), client.get_packet_port(), client_id])
 
 func server_handle_player_input(client: PacketPeerUDP, packet_data: PackedByteArray):
@@ -171,12 +171,12 @@ func server_handle_player_input(client: PacketPeerUDP, packet_data: PackedByteAr
 	
 	# Keep only recent history (last 2 seconds)
 	var cutoff_time = Network.serverLobbyTime - 120
-	while (client_input_history[client_id].size() > 0 and 
+	while (client_input_history[client_id].size() > 0 and
 		   client_input_history[client_id][0].timestamp < cutoff_time):
 		client_input_history[client_id].pop_front()
 	
 	# Apply movement on server
-	var player: PlayerComponent = get_tree().current_scene.get_node("Players")\
+	var player: PlayerComponent = get_tree().current_scene.get_node("Players") \
 	.get_node_or_null(str(client_id)).get_node("PlayerComponent")
 	
 	if !player:
@@ -208,29 +208,31 @@ func server_handle_player_input(client: PacketPeerUDP, packet_data: PackedByteAr
 	
 	if not client_state_history.has(client_id):
 		client_state_history[client_id] = []
+	
 	client_state_history[client_id].append(state_record)
 	
 	# Keep only recent state history
-	while (client_state_history[client_id].size() > 0 and 
+	while (client_state_history[client_id].size() > 0 and
 		   client_state_history[client_id][0].timestamp < cutoff_time):
 		client_state_history[client_id].pop_front()
 	
 	# Send correction if needed (not every frame to reduce bandwidth)
 	if correction_counter % correction_interval == 0:
 		send_server_correction(
-			client, 
-			client_id, 
-			player.CharacterBody.position, 
-			player.CharacterBody.velocity, 
+			client,
+			client_id,
+			player.CharacterBody.position,
+			player.CharacterBody.velocity,
 			sequence_number
 		)
 
 func send_server_correction(
-	client: PacketPeerUDP, 
-	client_id: int, 
-	position: Vector3, 
-	velocity: Vector3, 
-	sequence: int
+	client: PacketPeerUDP,
+	client_id: int,
+	position: Vector3,
+	velocity: Vector3,
+	sequence: int,
+	isImpulse: bool = false
 	):
 	"""Send authoritative correction to client"""
 	var packet = PackedByteArray()
@@ -247,6 +249,8 @@ func send_server_correction(
 	
 	# Pack sequence number this correction refers to
 	packet.append_array(var_to_bytes(sequence))
+
+	packet.append(isImpulse)
 	
 	client.put_packet(packet)
 
@@ -255,7 +259,7 @@ func spawn_player(id: int):
 		return
 		
 	var player = preload("res://scenes/Player.tscn").instantiate()
-	get_tree().current_scene.get_node("Players")\
+	get_tree().current_scene.get_node("Players") \
 	.call_deferred("add_child", player)
 	
 	if player:
@@ -263,7 +267,7 @@ func spawn_player(id: int):
 
 func remove_player(id: int):
 	print("attempting to remove player %s" % id)
-	var player = get_tree().current_scene.get_node("Players")\
+	var player = get_tree().current_scene.get_node("Players") \
 	.get_node_or_null(str(id))
 	
 	if player:

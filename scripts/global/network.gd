@@ -35,13 +35,14 @@ func create_server() -> void:
 func create_listen_server() -> void:
 	Server.create_listen_server()
 
+func create_dummy_client() -> void:
+	Client.create_dummy_client()
+
 func _ready() -> void:
 	multiplayer.connected_to_server.connect(_client_connected)
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	
-	
-
 func _physics_process(delta: float) -> void:
 	lobbyTime += 1
 	

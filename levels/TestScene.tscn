@@ -76,39 +76,44 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("2_md15r")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="Control"]
-layout_mode = 1
+[node name="CanvasLayer" type="CanvasLayer" parent="Control"]
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/CanvasLayer"]
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
-offset_top = -105.0
-offset_right = 560.0
+offset_top = -72.0
+offset_right = 634.0
 grow_vertical = 0
 alignment = 1
 
-[node name="Listen" type="Button" parent="Control/HBoxContainer"]
+[node name="Listen" type="Button" parent="Control/CanvasLayer/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Make Listen Server"
 
-[node name="Client" type="Button" parent="Control/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Make Client"
-
-[node name="Server" type="Button" parent="Control/HBoxContainer"]
+[node name="Server" type="Button" parent="Control/CanvasLayer/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Make Server"
 
-[node name="Label" type="Label" parent="Control"]
-layout_mode = 1
+[node name="Client" type="Button" parent="Control/CanvasLayer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Join as client"
+
+[node name="DummyClient" type="Button" parent="Control/CanvasLayer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "join as dummy client"
+
+[node name="Label" type="Label" parent="Control/CanvasLayer"]
 anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -20.0
-offset_right = 20.0
-offset_bottom = 23.0
+offset_left = -29.5
+offset_right = 29.5
+offset_bottom = 28.0
 grow_horizontal = 2
 text = "Time: "
 label_settings = SubResource("LabelSettings_otleo")

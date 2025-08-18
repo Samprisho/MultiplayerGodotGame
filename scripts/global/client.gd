@@ -4,10 +4,17 @@ extends Node
 var cl_interp_pos_speed: float = 30
 var cl_interp_rot_speed: float = 60
 
+var isDummyClient: bool = false
+
+func _ready() -> void:
+	SignalBus.joined_game.connect(on_joined_game)
+
+func on_joined_game(unique_id: int):
+	# Handle logic when joined_game signal is emitted
+	print("Joined game with unique ID: %s" % unique_id)
 
 func create_client() -> void:
 	print("Client: Creating client...")
-	
 	Network.udpServer = null
 	
 	var peer = ENetMultiplayerPeer.new()
@@ -32,14 +39,17 @@ func create_client() -> void:
 	else:
 		print("Failed to connect: ", error)
 
+func create_dummy_client() -> void:
+	create_client()
+	isDummyClient = true
+
 func client_process(_delta: float):
 	# Process ALL available packets in one frame to prevent buffer buildup
 	var packets_processed = 0
-	var max_packets_per_frame = 20  # Safety limit
+	var max_packets_per_frame = 20 # Safety limit
 	
 	while Network.udpClient.get_available_packet_count() > 0 \
 	and packets_processed < max_packets_per_frame:
-		
 		var array_bytes = Network.udpClient.get_packet()
 		var packet_type = array_bytes[0]
 		
@@ -53,7 +63,7 @@ func client_process(_delta: float):
 	
 	# Warn if we're getting too many packets
 	if packets_processed >= max_packets_per_frame:
-		print("Warning: Packet processing limit reached, %d packets remaining" % 
+		print("Warning: Packet processing limit reached, %d packets remaining" %
 			Network.udpClient.get_available_packet_count())
 
 func client_movement_update(array_bytes: PackedByteArray):
@@ -80,7 +90,7 @@ func client_movement_update(array_bytes: PackedByteArray):
 		if id != multiplayer.multiplayer_peer.get_unique_id():
 			# For other players, just interpolate to server position
 			player.CharacterBody.position = lerp(
-				player.CharacterBody.position, pos,  (get_physics_process_delta_time() * cl_interp_pos_speed)
+				player.CharacterBody.position, pos, (get_physics_process_delta_time() * cl_interp_pos_speed)
 			)
 			
 			player.CharacterBody.global_rotation = Vector3(
@@ -90,11 +100,10 @@ func client_movement_update(array_bytes: PackedByteArray):
 			)
 			
 			
-
 		else:
 			# For local player, only apply if there's a big discrepancy
 			# (Most corrections should come via SERVER_CORRECTION packets)
-			if player.CharacterBody.position.distance_to(pos) > 5.0:
+			if player.CharacterBody.position.distance_to(pos) > 30.0:
 				print("Emergency position correction: ", player.CharacterBody.position.distance_to(pos))
 				player.CharacterBody.position = pos
 			DebugDraw3D.draw_sphere(pos)
@@ -122,6 +131,9 @@ func client_handle_server_correction(array_bytes: PackedByteArray):
 	# Decode sequence number this correction refers to
 	var sequence_number: int = array_bytes.decode_var(offset)
 	offset += array_bytes.decode_var_size(offset)
+
+	var isImpulse: bool = bool(array_bytes[offset])
+	offset += 1
 	
 	# Get our player and apply the correction
 	var player: PlayerComponent = get_tree().current_scene.get_node(
@@ -129,9 +141,10 @@ func client_handle_server_correction(array_bytes: PackedByteArray):
 	
 	if player:
 		player.receive_server_correction(
-			server_position, 
-			server_velocity, 
-			sequence_number
+			server_position,
+			server_velocity,
+			sequence_number,
+			isImpulse
 		)
 
 func client_send_udp_association_packet():
