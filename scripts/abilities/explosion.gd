@@ -3,7 +3,7 @@ extends Ability
 @export var shapecast: ShapeCast3D
 
 func client_prediction_start():
-	super ()
+	super()
 
 	
 	playerComponent.accept_server_corrections = false
@@ -11,7 +11,7 @@ func client_prediction_start():
 	shared()
 
 func server_execution_start():
-	super ()
+	super()
 	shapecast.add_exception(characterBody)
 	
 	shared()
@@ -30,14 +30,15 @@ func server_execution_start():
 
 		character.velocity += direction * 10
 
-		Server.send_server_correction(
-			Network.get_UDP_peer_from_client_id(character.name.to_int()),
-			character.name.to_int(),
-			character.global_position,
-			character.velocity,
-			Server.client_state_history[int(character.name)][0]["sequence"],
-			true # isImpulse
-		)
+		if Server.client_state_history.has(int(character.name)) and Server.client_state_history[int(character.name)].size() > 0:
+			Server.send_server_correction(
+				Network.get_UDP_peer_from_client_id(character.name.to_int()),
+				character.name.to_int(),
+				character.global_position,
+				character.velocity,
+				Server.client_state_history[int(character.name)][0]["sequence"],
+				true # isImpulse
+			)
 	
 
 func shared():
