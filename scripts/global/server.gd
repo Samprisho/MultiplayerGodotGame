@@ -6,6 +6,7 @@ var client_input_history: Dictionary = {} # client_id -> Array of inputs
 var client_state_history: Dictionary = {} # client_id -> Array of states
 var deltaTime: float = 0
 
+
 # Correction sending frequency (don't send every frame)
 var correction_interval: int = 30 # Send corrections every 5 frames
 var correction_counter: int = 0

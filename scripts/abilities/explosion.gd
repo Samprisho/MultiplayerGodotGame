@@ -23,7 +23,7 @@ func server_execution_start():
 
 		if !character:
 			continue
-		
+
 		var direction = character.global_position - characterBody.global_position
 		direction.y += 1.2
 		direction = direction.normalized()
@@ -36,10 +36,11 @@ func server_execution_start():
 				character.name.to_int(),
 				character.global_position,
 				character.velocity,
-				Server.client_state_history[int(character.name)][0]["sequence"],
+				Server.client_state_history[int(character.name)][-1]["sequence"],
 				true # isImpulse
 			)
-	
+		else:
+			printerr("failed to send explosion correction packet")
 
 func shared():
 	characterBody.velocity = Vector3(0, 1, 0) * 12

@@ -118,6 +118,15 @@ grow_horizontal = 2
 text = "Time: "
 label_settings = SubResource("LabelSettings_otleo")
 
+[node name="Label2" type="Label" parent="Control/CanvasLayer"]
+offset_left = 27.0
+offset_top = 21.0
+offset_right = 264.0
+offset_bottom = 49.0
+size_flags_horizontal = 0
+text = "Player: xxxxxxxxxxxxx"
+label_settings = SubResource("LabelSettings_otleo")
+
 [node name="Players" type="Node" parent="."]
 
 [node name="Geometry" type="Node3D" parent="."]

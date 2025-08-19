@@ -16,5 +16,6 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	time.text = "lobby: %s. Server: %s" % [Network.lobbyTime, Network.serverLobbyTime]
 
-func on_joined_game(_id: int) -> void:
+func on_joined_game(id: int) -> void:
 	$CanvasLayer/HBoxContainer.visible = false
+	$CanvasLayer/Label2.text = "player: " + str(id)

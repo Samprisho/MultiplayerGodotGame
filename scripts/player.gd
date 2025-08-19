@@ -31,7 +31,7 @@ var testMoveRight: bool = false
 
 # Reconciliation threshold
 var position_tolerance: float = 0.5
-var velocity_tolerance: float = 1
+var velocity_tolerance: float = 4
 
 # TODO: Make save data for settings
 var mouseSensitivity: float = 0.002
@@ -42,6 +42,9 @@ var accept_server_corrections: bool = true
 var abilities: Array[Ability]
 
 var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
+
+var impulsed_timer: Timer
+@export var impulsed_time: float = 0.5
 
 ## for the record, claude helped me with the player state and input
 # stuff, which they made alongside the server correction and client
@@ -128,6 +131,18 @@ func _ready():
 	
 	if !multiplayer.is_server():
 		movementTest = Client.isDummyClient
+	
+	impulsed_timer = Timer.new()
+	impulsed_timer.wait_time = impulsed_time
+	impulsed_timer.one_shot = true
+	impulsed_timer.timeout.connect(
+		func():
+			if not is_multiplayer_authority():
+				return
+			CharacterBody.velocity = Vector3.ZERO
+			print("Impulse timer ended for player: ", multiplayer.get_unique_id())
+	)
+	add_child(impulsed_timer)
 
 
 func _input(event: InputEvent) -> void:
@@ -285,31 +300,48 @@ func send_input_to_server(input: PlayerInput):
 	
 	Network.udpClient.put_packet(packet_data)
 
+
+func find_server_corrected_state_index(server_sequence: int) -> int:
+	for i in range(state_buffer.size()):
+		if state_buffer[i].sequence_number == server_sequence:
+			return i
+	return -1
+
+func find_player_input_index(sequence: int) -> int:
+	for i in range(input_buffer.size()):
+		if input_buffer[i].sequence_number == sequence:
+			return i
+	return -1
+
+func invalidate_states_after_index(index: int):
+	"""Remove all states after the given index"""
+	if index < 0 or index >= state_buffer.size():
+		return
+	
+	var states_to_remove = state_buffer.size() - index - 1
+	for i in range(states_to_remove):
+		state_buffer.pop_back()
+
 func receive_server_correction(
 	server_position: Vector3, server_velocity: Vector3, server_sequence: int, isImpulse: bool = false):
 	"""Handle server correction with reconciliation using move_and_slide"""
 	
 	if isImpulse:
-		# If it's an impulse, apply it immediately
-		CharacterBody.global_position = server_position
+		var impulsedPlayerState: PlayerState = PlayerState.new(
+			server_position, server_velocity, find_player_input_index(server_sequence), server_sequence
+		)
+		
+		var oldStateIndexAtImpulse = find_server_corrected_state_index(server_sequence)
+		invalidate_states_after_index(oldStateIndexAtImpulse)
+		state_buffer[oldStateIndexAtImpulse] = impulsedPlayerState
+
+		CharacterBody.position = server_position
 		CharacterBody.velocity = server_velocity
 
-		var impulse_correction_index = -1
-		for i in range(state_buffer.size()):
-			if state_buffer[i].sequence_number == server_sequence:
-				impulse_correction_index = i
-				break
+		replay_from_input_index(find_player_input_index(server_sequence))
+		
+		print("REPLAY!!! Server sequence: %d || client_sequence %d" % [server_sequence, sequence_counter])
 
-		var server_impulse_corrected_state = PlayerState.new(
-			server_position, server_velocity, current_input.timestamp, server_sequence)
-
-		state_buffer[impulse_correction_index] = server_impulse_corrected_state
-		current_predicted_state = server_impulse_corrected_state
-
-		# Remove all states after the corrected one (they're now invalid)
-		var states_to_invalidate = state_buffer.size() - impulse_correction_index - 1
-		for i in range(states_to_invalidate):
-			state_buffer.pop_back()
 		return
 
 	if not accept_server_corrections:
@@ -317,22 +349,21 @@ func receive_server_correction(
 		return
 
 	# Find the state that corresponds to this server correction
-	var correction_index = -1
-	for i in range(state_buffer.size()):
-		if state_buffer[i].sequence_number == server_sequence:
-			correction_index = i
-			break
+	var correction_index = find_server_corrected_state_index(server_sequence)
 	
 	if correction_index == -1:
 		print("Server correction too old, sequence: ", server_sequence, ", ignoring")
 		return
 	
 	var old_state: PlayerState = state_buffer[correction_index]
-	
+
+	if impulsed_timer.time_left > 0:
+		return
+
 	# Check if correction is significant enough
 	var position_error = old_state.position.distance_to(server_position)
 	var velocity_error = old_state.velocity.distance_to(server_velocity)
-	
+
 	if position_error < position_tolerance and velocity_error < velocity_tolerance:
 		return # No significant error
 	
@@ -343,19 +374,12 @@ func receive_server_correction(
 	var corrected_state = PlayerState.new(
 		server_position, server_velocity, old_state.timestamp, server_sequence)
 	state_buffer[correction_index] = corrected_state
-	
-	# Remove all states after the corrected one (they're now invalid)
-	var states_to_remove = state_buffer.size() - correction_index - 1
-	for i in range(states_to_remove):
-		state_buffer.pop_back()
-	
+
+	invalidate_states_after_index(correction_index)
+
 	# Find corresponding input index
-	var input_index = -1
-	for i in range(input_buffer.size()):
-		if input_buffer[i].sequence_number == server_sequence:
-			input_index = i
-			break
-	
+	var input_index = find_player_input_index(server_sequence)
+
 	if input_index == -1:
 		print("Could not find input for reconciliation")
 		CharacterBody.global_position = server_position
@@ -367,18 +391,26 @@ func receive_server_correction(
 	CharacterBody.velocity = server_velocity
 	
 	# Replay all inputs from correction point to present using move_and_slide
-	var assumed_delta = 1.0 / 60.0 # Assume 60fps for replay
-	
+	replay_from_input_index(input_index)
+
+
+
+func replay_from_input_index(input_index: int):
+	if input_index == -1:
+		print("Invalid input index for replay")
+		return
+
+	# Replay all inputs from the given index
 	for i in range(input_index + 1, input_buffer.size()):
 		var input_to_replay: PlayerInput = input_buffer[i]
-		
+
 		# Apply movement using the same physics
 		var calculatedVelocity = \
-			calculate_movement(assumed_delta, input_to_replay)
-			
+			calculate_movement(get_physics_process_delta_time() , input_to_replay)
+
 		CharacterBody.velocity = calculatedVelocity
 		CharacterBody.move_and_slide()
-		
+
 		# Store the replayed state
 		var replayed_state = PlayerState.new(
 			CharacterBody.global_position,
@@ -386,10 +418,12 @@ func receive_server_correction(
 			input_to_replay.timestamp,
 			input_to_replay.sequence_number
 		)
-		
+
 		add_to_state_buffer(replayed_state)
-	
-	# Update our predicted state to match final result
+
+		DebugDraw3D.draw_sphere(replayed_state.position, 0.1,Color(1, 0, 0), 1)
+
+		# Update our predicted state to match final result
 	if state_buffer.size() > 0:
 		current_predicted_state = state_buffer[-1]
 

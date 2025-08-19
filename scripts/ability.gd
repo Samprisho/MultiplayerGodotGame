@@ -22,7 +22,6 @@ func local_request_activate():
 	if !can_activate():
 		return
 
-	print("Client ", multiplayer.get_unique_id(), " rpc to server")
 	rpc("owner_client_rpc_server")
 
 	client_prediction_start()
@@ -30,9 +29,7 @@ func local_request_activate():
 @rpc("any_peer", "call_local", "reliable")
 func owner_client_rpc_server():
 	if multiplayer.is_server():
-		print("I'm the server, I recieved this rpc from: ", multiplayer.get_remote_sender_id())
 		if can_activate():
-			print("Server activating ability for client: ", multiplayer.get_remote_sender_id())
 			server_execution_start()
 			rpc("multicast_activate", multiplayer.get_remote_sender_id())
 
@@ -43,7 +40,6 @@ func multicast_activate(id: int):
 	 id == multiplayer.get_unique_id():
 		return
 
-	print("Multi cast to: ", multiplayer.get_unique_id(), " from ", id)
 	multicast_notif()
 
 
@@ -52,7 +48,6 @@ func client_prediction_start():
 
 func client_prediction_logic(_delta = 0.0):
 	if should_end() || not isActive:
-		print("Ending ability prediction for client: ", multiplayer.get_unique_id())
 		client_prediction_end()
 		return
 
@@ -64,7 +59,6 @@ func server_execution_start():
 
 func server_execution_logic(_delta = 0.0):
 	if should_end() || not isActive:
-		print("Ending ability execution for server")
 		server_execution_end()
 		return
 	
