@@ -1,8 +1,10 @@
-[gd_resource type="VisualShader" load_steps=20 format=3 uid="uid://c7w0qn2c6k0dr"]
+[gd_resource type="VisualShader" load_steps=21 format=3 uid="uid://dbgyq86doyqld"]
 
-[sub_resource type="VisualShaderNodeColorParameter" id="VisualShaderNodeColorParameter_ke12f"]
-parameter_name = "Albedo"
-default_value_enabled = true
+[ext_resource type="Texture2D" uid="uid://brp6rm0u8hnx2" path="res://assets/Characters/Slugger_Slugger Color Pallete.png" id="1_h7aha"]
+
+[sub_resource type="VisualShaderNodeTexture" id="VisualShaderNodeTexture_ub2vu"]
+texture = ExtResource("1_h7aha")
+texture_type = 1
 
 [sub_resource type="VisualShaderNodeFloatOp" id="VisualShaderNodeFloatOp_06cu1"]
 default_input_values = [0, 0.0, 1, 1.0]
@@ -12,7 +14,7 @@ operator = 2
 input_name = "light"
 
 [sub_resource type="VisualShaderNodeStep" id="VisualShaderNodeStep_wkkvy"]
-default_input_values = [0, 0.99, 1, 0.0]
+default_input_values = [0, 0.995, 1, 0.0]
 
 [sub_resource type="VisualShaderNodeFloatOp" id="VisualShaderNodeFloatOp_vjn21"]
 default_input_values = [0, 0.0, 1, 0.33]
@@ -31,6 +33,7 @@ operator = 3
 constant = 4.0
 
 [sub_resource type="VisualShaderNodeClamp" id="VisualShaderNodeClamp_rdg8i"]
+default_input_values = [0, 0.0, 1, 0.2, 2, 1.0]
 
 [sub_resource type="VisualShaderNodeVectorOp" id="VisualShaderNodeVectorOp_de3qe"]
 default_input_values = [0, Vector3(0, 0, 0), 1, Vector3(255, 255, 255)]
@@ -61,13 +64,13 @@ input_name = "normal"
 code = "shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_schlick_ggx;
 
-uniform vec4 Albedo : source_color = vec4(1.000000, 1.000000, 1.000000, 1.000000);
+uniform sampler2D tex_frg_2 : source_color;
 
 
 
 void fragment() {
-// ColorParameter:2
-	vec4 n_out2p0 = Albedo;
+// Texture2D:2
+	vec4 n_out2p0 = texture(tex_frg_2, UV);
 
 
 // Output:0
@@ -110,7 +113,7 @@ void light() {
 
 
 // Clamp:26
-	float n_in26p1 = 0.00000;
+	float n_in26p1 = 0.20000;
 	float n_in26p2 = 1.00000;
 	float n_out26p0 = clamp(n_out10p0, n_in26p1, n_in26p2);
 
@@ -144,7 +147,7 @@ void light() {
 
 
 // Step:20
-	float n_in20p0 = 0.99000;
+	float n_in20p0 = 0.99500;
 	float n_out20p0 = step(n_in20p0, n_out6p0);
 
 
@@ -164,10 +167,10 @@ void light() {
 
 }
 "
-graph_offset = Vector2(-291.507, -126.329)
+graph_offset = Vector2(-321.426, 25.3679)
 nodes/vertex/0/position = Vector2(660, 220)
-nodes/fragment/2/node = SubResource("VisualShaderNodeColorParameter_ke12f")
-nodes/fragment/2/position = Vector2(0, 160)
+nodes/fragment/2/node = SubResource("VisualShaderNodeTexture_ub2vu")
+nodes/fragment/2/position = Vector2(-80, 200)
 nodes/fragment/connections = PackedInt32Array(2, 0, 0, 0)
 nodes/light/0/position = Vector2(1940, -240)
 nodes/light/2/node = SubResource("VisualShaderNodeInput_46x1o")

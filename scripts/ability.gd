@@ -31,10 +31,10 @@ func owner_client_rpc_server():
 	if multiplayer.is_server():
 		if can_activate():
 			server_execution_start()
-			rpc("multicast_activate", multiplayer.get_remote_sender_id())
+			rpc("multicast_rpc_activate", multiplayer.get_remote_sender_id())
 
 @rpc("any_peer", "call_local", "reliable")
-func multicast_activate(id: int):
+func multicast_rpc_activate(id: int):
 	# We only want to run this on every other client
 	if multiplayer.get_unique_id() == multiplayer.get_remote_sender_id() or \
 	 id == multiplayer.get_unique_id():
@@ -79,6 +79,14 @@ func _physics_process(delta: float) -> void:
 		client_prediction_logic(delta)
 
 func _ready() -> void:
+	# TODO: Make this shit one timer on PlayerComponenet.
+	
+	# Your life is nothing, you serve ZERO purpose...
+	# YOU SHOULD KILL YOURSELF, NOW!!! AND GIVE SOMEBODY ELSE A PIECE
+	# OF THAT OXYGEN THAT IS TRAPPED IN THE OZONE LAYER FOR US TO BREATHE!
+	# Cause what are you heere for? To write garbage ahh code? KILL YOURSELF!!
+	# I mean that with 100%...1000%, kill yourself
+	
 	# Initialize the correction timer
 	correctionTimer.wait_time = correctionInterval
 	correctionTimer.one_shot = false

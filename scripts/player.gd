@@ -339,13 +339,10 @@ func receive_server_correction(
 		CharacterBody.velocity = server_velocity
 
 		replay_from_input_index(find_player_input_index(server_sequence))
-		
-		print("REPLAY!!! Server sequence: %d || client_sequence %d" % [server_sequence, sequence_counter])
 
 		return
 
 	if not accept_server_corrections:
-		print("Server corrections not accepted for player: ", multiplayer.get_unique_id())
 		return
 
 	# Find the state that corresponds to this server correction
@@ -367,8 +364,8 @@ func receive_server_correction(
 	if position_error < position_tolerance and velocity_error < velocity_tolerance:
 		return # No significant error
 	
-	print("Applying server correction. Pos error: %.2f, Vel error: %.2f" %
-	 [position_error, velocity_error])
+	#print("Applying server correction. Pos error: %.2f, Vel error: %.2f" %
+	#[position_error, velocity_error])
 	
 	# Apply server correction by creating corrected state
 	var corrected_state = PlayerState.new(

@@ -100,3 +100,4 @@ common/physics_interpolation=true
 [rendering]
 
 renderer/rendering_method="mobile"
+textures/default_filters/anisotropic_filtering_level=0
